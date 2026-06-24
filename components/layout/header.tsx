@@ -1,12 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function Header({
   onMenuClick,
 }: Readonly<{
   onMenuClick: () => void;
 }>) {
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signOut();
+      router.replace("/login");
+      router.refresh();
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur">
       <div className="flex h-16 items-center gap-4 px-4 sm:px-6 lg:px-8">
@@ -45,6 +64,15 @@ export function Header({
         >
           Perfil
         </Link>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {signingOut ? "Saindo..." : "Sair"}
+        </button>
       </div>
     </header>
   );

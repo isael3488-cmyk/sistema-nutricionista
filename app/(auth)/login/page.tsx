@@ -1,4 +1,8 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const highlights = [
   "Gestao de pacientes com visao clara",
@@ -7,6 +11,106 @@ const highlights = [
 ];
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      void supabase.auth.getSession().then(({ data }) => {
+        if (!mounted) {
+          return;
+        }
+
+        if (data.session) {
+          router.replace("/dashboard");
+        }
+      });
+    } catch {
+      // The UI below explains when the Supabase env vars are missing.
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
+
+  async function handleSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setNotice(null);
+    setLoading(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (signInError) {
+      setError(
+        signInError instanceof Error
+          ? signInError.message
+          : "Nao foi possivel entrar agora.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordReset() {
+    setError(null);
+    setNotice(null);
+
+    if (!email.trim()) {
+      setError("Digite seu e-mail antes de solicitar a redefinicao.");
+      return;
+    }
+
+    setResetting(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/login`,
+        },
+      );
+
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      setNotice("Enviamos um link de redefinicao para o e-mail informado.");
+    } catch (resetError) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : "Nao foi possivel enviar o link de redefinicao.",
+      );
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-brand-gradient px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-soft backdrop-blur xl:grid-cols-[1.15fr_0.85fr]">
@@ -80,17 +184,21 @@ export default function LoginPage() {
                   Entrar na plataforma
                 </h2>
                 <p className="text-sm leading-6 text-slate-500">
-                  Tela visual de login pronta para a primeira etapa do projeto.
+                  Acesso protegido por Supabase Auth com e-mail e senha.
                 </p>
               </div>
 
-              <form className="mt-8 space-y-5">
+              <form className="mt-8 space-y-5" onSubmit={handleSignIn}>
                 <label className="block space-y-2">
                   <span className="text-sm font-medium text-slate-700">
                     E-mail
                   </span>
                   <input
                     type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                     placeholder="nutricionista@clinica.com"
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
                   />
@@ -102,6 +210,10 @@ export default function LoginPage() {
                   </span>
                   <input
                     type="password"
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
                     placeholder="Digite sua senha"
                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
                   />
@@ -115,24 +227,40 @@ export default function LoginPage() {
                     />
                     Lembrar acesso
                   </label>
-                  <Link
-                    href="/dashboard"
+                  <button
+                    type="button"
+                    onClick={handlePasswordReset}
                     className="font-medium text-blue-600 hover:text-blue-700"
+                    disabled={resetting || loading}
                   >
-                    Esqueci a senha
-                  </Link>
+                    {resetting ? "Enviando..." : "Esqueci a senha"}
+                  </button>
                 </div>
 
-                <Link
-                  href="/dashboard"
-                  className="flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                <button
+                  type="submit"
+                  disabled={loading || resetting}
+                  className="flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Acessar dashboard
-                </Link>
+                  {loading ? "Entrando..." : "Acessar dashboard"}
+                </button>
               </form>
 
+              {error ? (
+                <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {error}
+                </div>
+              ) : null}
+
+              {notice ? (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {notice}
+                </div>
+              ) : null}
+
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                Login visual, sem autenticao real nesta etapa.
+                Se o cliente nao tiver acesso, crie o usuario em Supabase Auth
+                antes de compartilhar.
               </div>
             </div>
           </div>
