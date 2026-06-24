@@ -12,8 +12,11 @@ const highlights = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +46,7 @@ export default function LoginPage() {
     };
   }, [router]);
 
-  async function handleSignIn(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setNotice(null);
@@ -51,23 +54,60 @@ export default function LoginPage() {
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      if (mode === "login") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
-      if (signInError) {
-        setError(signInError.message);
+        if (signInError) {
+          setError(signInError.message);
+          return;
+        }
+
+        router.replace("/dashboard");
+        router.refresh();
         return;
       }
 
-      router.replace("/dashboard");
-      router.refresh();
-    } catch (signInError) {
+      if (password !== confirmPassword) {
+        setError("A senha e a confirmacao precisam ser iguais.");
+        return;
+      }
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            full_name: name.trim(),
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      if (data.session) {
+        router.replace("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      setNotice(
+        "Conta criada. Verifique o e-mail para confirmar o cadastro e depois volte para entrar.",
+      );
+      setMode("login");
+      setName("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (submitError) {
       setError(
-        signInError instanceof Error
-          ? signInError.message
-          : "Nao foi possivel entrar agora.",
+        submitError instanceof Error
+          ? submitError.message
+          : "Nao foi possivel processar o acesso agora.",
       );
     } finally {
       setLoading(false);
@@ -181,14 +221,62 @@ export default function LoginPage() {
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-900/5">
               <div className="space-y-2">
                 <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Entrar na plataforma
+                  {mode === "login"
+                    ? "Entrar na plataforma"
+                    : "Criar acesso"
+                  }
                 </h2>
                 <p className="text-sm leading-6 text-slate-500">
-                  Acesso protegido por Supabase Auth com e-mail e senha.
+                  {mode === "login"
+                    ? "Acesso protegido por Supabase Auth com e-mail e senha."
+                    : "Crie seu primeiro acesso com nome, e-mail e senha."
+                  }
                 </p>
               </div>
 
-              <form className="mt-8 space-y-5" onSubmit={handleSignIn}>
+              <div className="mt-6 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    mode === "login"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500"
+                  }`}
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("register")}
+                  className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                    mode === "register"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500"
+                  }`}
+                >
+                  Criar conta
+                </button>
+              </div>
+
+              <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+                {mode === "register" ? (
+                  <label className="block space-y-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Nome completo
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      autoComplete="name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Nome do cliente"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
+                    />
+                  </label>
+                ) : null}
+
                 <label className="block space-y-2">
                   <span className="text-sm font-medium text-slate-700">
                     E-mail
@@ -219,22 +307,49 @@ export default function LoginPage() {
                   />
                 </label>
 
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2 text-slate-600">
+                {mode === "register" ? (
+                  <label className="block space-y-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Confirmar senha
+                    </span>
                     <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      type="password"
+                      required
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(event) =>
+                        setConfirmPassword(event.target.value)
+                      }
+                      placeholder="Repita a senha"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
                     />
-                    Lembrar acesso
                   </label>
-                  <button
-                    type="button"
-                    onClick={handlePasswordReset}
-                    className="font-medium text-blue-600 hover:text-blue-700"
-                    disabled={resetting || loading}
-                  >
-                    {resetting ? "Enviando..." : "Esqueci a senha"}
-                  </button>
+                ) : null}
+
+                <div className="flex items-center justify-between text-sm">
+                  {mode === "login" ? (
+                    <>
+                      <label className="flex items-center gap-2 text-slate-600">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        Lembrar acesso
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handlePasswordReset}
+                        className="font-medium text-blue-600 hover:text-blue-700"
+                        disabled={resetting || loading}
+                      >
+                        {resetting ? "Enviando..." : "Esqueci a senha"}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">
+                      Crie sua senha com pelo menos 6 caracteres.
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -242,7 +357,13 @@ export default function LoginPage() {
                   disabled={loading || resetting}
                   className="flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? "Entrando..." : "Acessar dashboard"}
+                  {loading
+                    ? mode === "login"
+                      ? "Entrando..."
+                      : "Criando conta..."
+                    : mode === "login"
+                      ? "Acessar dashboard"
+                      : "Criar conta"}
                 </button>
               </form>
 
@@ -257,6 +378,20 @@ export default function LoginPage() {
                   {notice}
                 </div>
               ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setNotice(null);
+                  setMode(mode === "login" ? "register" : "login");
+                }}
+                className="mt-5 text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                {mode === "login"
+                  ? "Nao tem conta? Criar acesso"
+                  : "Ja tenho conta? Entrar"}
+              </button>
 
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                 Se o cliente nao tiver acesso, crie o usuario em Supabase Auth
