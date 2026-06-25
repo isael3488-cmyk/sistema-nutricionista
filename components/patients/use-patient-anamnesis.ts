@@ -19,6 +19,13 @@ export function usePatientAnamnesis(patientId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!patientId) {
+      setAnamnesis(null);
+      setError(null);
+      setReady(true);
+      return;
+    }
+
     let mounted = true;
 
     async function loadAnamnesis() {

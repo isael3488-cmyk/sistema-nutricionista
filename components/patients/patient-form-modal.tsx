@@ -47,10 +47,12 @@ export function PatientFormModal({
   submitLabel = "Salvar paciente",
 }: Readonly<PatientFormModalProps>) {
   const [form, setForm] = useState<PatientFormValues>(emptyForm);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       setForm(initialValues ?? emptyForm);
+      setSaveError(null);
     }
   }, [initialValues, open]);
 
@@ -70,6 +72,7 @@ export function PatientFormModal({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSaveError(null);
     try {
       await onSave({
         ...form,
@@ -79,7 +82,9 @@ export function PatientFormModal({
       });
       onClose();
     } catch (error) {
-      console.error("Falha ao salvar paciente:", error);
+      setSaveError(
+        error instanceof Error ? error.message : "Falha ao salvar paciente.",
+      );
     }
   };
 
@@ -108,6 +113,12 @@ export function PatientFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="max-h-[80vh] overflow-y-auto">
+          {saveError ? (
+            <div className="mx-6 mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {saveError}
+            </div>
+          ) : null}
+
           <div className="grid gap-5 px-6 py-6 lg:grid-cols-2">
             <Field label="Nome" required>
               <input

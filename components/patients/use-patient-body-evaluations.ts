@@ -18,6 +18,13 @@ export function usePatientBodyEvaluations(patientId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!patientId) {
+      setEvaluations([]);
+      setError(null);
+      setReady(true);
+      return;
+    }
+
     let mounted = true;
 
     async function loadEvaluations() {

@@ -12,6 +12,7 @@ $$;
 
 create table if not exists public.patients (
   id text primary key,
+  user_id uuid unique references auth.users(id) on delete set null,
   name text not null,
   phone text not null default '',
   whatsapp text not null default '',
@@ -22,10 +23,17 @@ create table if not exists public.patients (
   current_weight_kg numeric(8,2) not null default 0,
   target_weight_kg numeric(8,2) not null default 0,
   objective text not null default '',
+  preferred_plan text not null default 'Basico',
   notes text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.patients
+  add column if not exists user_id uuid references auth.users(id) on delete set null;
+
+alter table public.patients
+  add column if not exists preferred_plan text not null default 'Basico';
 
 create table if not exists public.patient_anamneses (
   patient_id text primary key references public.patients(id) on delete cascade,
@@ -63,6 +71,12 @@ create table if not exists public.patient_body_evaluations (
 
 create index if not exists idx_patient_body_evaluations_patient_date
   on public.patient_body_evaluations (patient_id, evaluation_date desc, created_at desc);
+
+create index if not exists idx_patients_user_id
+  on public.patients (user_id);
+
+create unique index if not exists idx_patients_user_id_unique
+  on public.patients (user_id);
 
 create table if not exists public.patient_meal_plans (
   patient_id text primary key references public.patients(id) on delete cascade,

@@ -14,7 +14,7 @@ export function DashboardShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <AuthGuard>
+    <AuthGuard requiredRole="admin">
       <div className="min-h-screen bg-slate-50 text-slate-900">
         <div className="mx-auto flex min-h-screen max-w-[1800px]">
           <Sidebar

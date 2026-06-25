@@ -20,6 +20,13 @@ export function usePatientMealPlan(patientId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!patientId) {
+      setMealPlan(null);
+      setError(null);
+      setReady(true);
+      return;
+    }
+
     let mounted = true;
 
     async function loadMealPlan() {

@@ -74,7 +74,7 @@ export function PatientDetailsScreen({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <DetailCard label="Idade" value={`${age} anos`} />
         <DetailCard label="Altura" value={formatHeight(patient.heightCm)} />
         <DetailCard
@@ -85,6 +85,7 @@ export function PatientDetailsScreen({
           label="Peso objetivo"
           value={formatWeight(patient.targetWeightKg)}
         />
+        <DetailCard label="Plano" value={patient.preferredPlan ?? "Basico"} />
       </div>
 
       <div className="rounded-[2rem] border border-slate-200 bg-white p-2 shadow-sm">
@@ -138,6 +139,7 @@ export function PatientDetailsScreen({
               />
               <Info label="Sexo" value={patient.sex} />
               <Info label="Objetivo" value={patient.objective} />
+              <Info label="Plano" value={patient.preferredPlan ?? "Basico"} />
             </div>
           </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { getRoleHomeRoute, getUserRole } from "@/lib/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const highlights = [
@@ -13,6 +14,7 @@ const highlights = [
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [accountType, setAccountType] = useState<"patient" | "admin">("patient");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,13 +30,14 @@ export default function LoginPage() {
     try {
       const supabase = getSupabaseBrowserClient();
 
-      void supabase.auth.getSession().then(({ data }) => {
+      void supabase.auth.getUser().then(({ data }) => {
         if (!mounted) {
           return;
         }
 
-        if (data.session) {
-          router.replace("/dashboard");
+        if (data.user) {
+          const role = getUserRole(data.user.user_metadata?.role);
+          router.replace(getRoleHomeRoute(role));
         }
       });
     } catch {
@@ -55,7 +58,7 @@ export default function LoginPage() {
     try {
       const supabase = getSupabaseBrowserClient();
       if (mode === "login") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
@@ -65,7 +68,8 @@ export default function LoginPage() {
           return;
         }
 
-        router.replace("/dashboard");
+        const role = getUserRole(data.user?.user_metadata?.role);
+        router.replace(getRoleHomeRoute(role));
         router.refresh();
         return;
       }
@@ -81,6 +85,7 @@ export default function LoginPage() {
         options: {
           data: {
             full_name: name.trim(),
+            role: accountType,
           },
         },
       });
@@ -91,13 +96,15 @@ export default function LoginPage() {
       }
 
       if (data.session) {
-        router.replace("/dashboard");
+        router.replace(accountType === "patient" ? "/patient/profile" : "/dashboard");
         router.refresh();
         return;
       }
 
       setNotice(
-        "Conta criada. Verifique o e-mail para confirmar o cadastro e depois volte para entrar.",
+        accountType === "patient"
+          ? "Conta criada. Se a confirmacao por e-mail estiver ativa, confirme a conta antes de completar o perfil do paciente."
+          : "Conta criada. Verifique o e-mail para confirmar o cadastro e depois volte para entrar.",
       );
       setMode("login");
       setName("");
@@ -259,6 +266,33 @@ export default function LoginPage() {
                 </button>
               </div>
 
+              {mode === "register" ? (
+                <div className="mt-5 grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType("patient")}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                      accountType === "patient"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    Paciente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountType("admin")}
+                    className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                      accountType === "admin"
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    Nutricionista
+                  </button>
+                </div>
+              ) : null}
+
               <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
                 {mode === "register" ? (
                   <label className="block space-y-2">
@@ -394,8 +428,8 @@ export default function LoginPage() {
               </button>
 
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                Se o cliente nao tiver acesso, crie o usuario em Supabase Auth
-                antes de compartilhar.
+                Pacientes criam o proprio acesso e completam o perfil. Contas
+                administrativas podem ser criadas manualmente no Supabase.
               </div>
             </div>
           </div>

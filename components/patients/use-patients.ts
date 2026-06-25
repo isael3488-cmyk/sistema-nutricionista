@@ -5,7 +5,7 @@ import { Patient, PatientFormValues, createPatient } from "@/lib/patients";
 import {
   deletePatient as deletePatientRecord,
   listPatients,
-  upsertPatient,
+  upsertPatient as savePatientRecord,
 } from "@/lib/supabase/repositories";
 
 export function usePatients() {
@@ -54,14 +54,21 @@ export function usePatients() {
   const actions = useMemo(
     () => ({
       async addPatient(values: PatientFormValues) {
-        const created = await upsertPatient(createPatient(values));
+        const created = await savePatientRecord(createPatient(values));
         setPatients((current) => [
           created,
           ...current.filter((patient) => patient.id !== created.id),
         ]);
       },
+      async upsertPatient(patient: Patient) {
+        const saved = await savePatientRecord(patient);
+        setPatients((current) => [
+          saved,
+          ...current.filter((item) => item.id !== saved.id),
+        ]);
+      },
       async updatePatient(patient: Patient) {
-        const updated = await upsertPatient(patient);
+        const updated = await savePatientRecord(patient);
         setPatients((current) =>
           current.map((item) => (item.id === updated.id ? updated : item)),
         );
@@ -74,6 +81,9 @@ export function usePatients() {
       },
       getPatientById(id: string) {
         return patients.find((patient) => patient.id === id) ?? null;
+      },
+      getPatientByUserId(userId: string) {
+        return patients.find((patient) => patient.userId === userId) ?? null;
       },
       refresh,
     }),

@@ -4,12 +4,18 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  getRoleFallbackRoute,
+  getUserRole,
+  type UserRole,
+} from "@/lib/auth";
 
-export function AuthGuard({
-  children,
-}: Readonly<{
+type AuthGuardProps = {
   children: ReactNode;
-}>) {
+  requiredRole?: UserRole;
+};
+
+export function AuthGuard({ children, requiredRole }: Readonly<AuthGuardProps>) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -20,13 +26,20 @@ export function AuthGuard({
     try {
       const supabase = getSupabaseBrowserClient();
 
-      void supabase.auth.getSession().then(({ data }) => {
+      void supabase.auth.getUser().then(({ data, error }) => {
         if (!mounted) {
           return;
         }
 
-        if (!data.session) {
+        if (error || !data.user) {
           router.replace("/login");
+          return;
+        }
+
+        const role = getUserRole(data.user.user_metadata?.role);
+
+        if (requiredRole && requiredRole !== role) {
+          router.replace(getRoleFallbackRoute(requiredRole));
           return;
         }
 
@@ -43,6 +56,12 @@ export function AuthGuard({
         if (!session) {
           setReady(false);
           router.replace("/login");
+          return;
+        }
+
+        const role = getUserRole(session.user.user_metadata?.role);
+        if (requiredRole && requiredRole !== role) {
+          router.replace(getRoleFallbackRoute(requiredRole));
           return;
         }
 
@@ -64,7 +83,7 @@ export function AuthGuard({
     return () => {
       mounted = false;
     };
-  }, [router]);
+  }, [requiredRole, router]);
 
   if (message) {
     return (

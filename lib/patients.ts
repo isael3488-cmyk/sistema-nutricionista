@@ -2,6 +2,7 @@ export type PatientSex = "Masculino" | "Feminino" | "Outro";
 
 export type Patient = {
   id: string;
+  userId?: string | null;
   name: string;
   phone: string;
   whatsapp: string;
@@ -12,11 +13,19 @@ export type Patient = {
   currentWeightKg: number;
   targetWeightKg: number;
   objective: string;
+  preferredPlan?: string;
   notes: string;
   createdAt: string;
 };
 
-export type PatientFormValues = Omit<Patient, "id" | "createdAt">;
+export type PatientFormValues = Omit<
+  Patient,
+  "id" | "createdAt" | "userId" | "preferredPlan"
+>;
+
+export type PatientProfileFormValues = Omit<PatientFormValues, "preferredPlan"> & {
+  preferredPlan: string;
+};
 
 export type PatientAnamnesis = {
   waterIntake: string;
@@ -148,6 +157,17 @@ export function createPatient(values: PatientFormValues): Patient {
     ...values,
     id: createPatientId(),
     createdAt: new Date().toISOString(),
+  };
+}
+
+export function createPatientProfile(
+  userId: string,
+  values: PatientProfileFormValues,
+): Patient {
+  return {
+    ...createPatient(values),
+    userId,
+    preferredPlan: values.preferredPlan,
   };
 }
 
