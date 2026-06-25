@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getRoleHomeRoute, getUserRole } from "@/lib/auth";
+import { getPatientByUserId } from "@/lib/supabase/repositories";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const highlights = [
@@ -21,8 +22,10 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -31,14 +34,25 @@ export default function LoginPage() {
       const supabase = getSupabaseBrowserClient();
 
       void supabase.auth.getUser().then(({ data }) => {
-        if (!mounted) {
+        if (!mounted || !data.user) {
           return;
         }
 
-        if (data.user) {
-          const role = getUserRole(data.user.user_metadata?.role);
-          router.replace(getRoleHomeRoute(role));
-        }
+        void (async () => {
+          try {
+            const role = getUserRole(data.user.user_metadata?.role);
+            if (role === "patient") {
+              const patient = await getPatientByUserId(data.user.id);
+              router.replace(patient ? "/patient" : "/patient/profile");
+              return;
+            }
+
+            router.replace(getRoleHomeRoute(role));
+          } catch {
+            const role = getUserRole(data.user.user_metadata?.role);
+            router.replace(getRoleHomeRoute(role));
+          }
+        })();
       });
     } catch {
       // The UI below explains when the Supabase env vars are missing.
@@ -53,6 +67,7 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
     setNotice(null);
+    setPendingConfirmationEmail(null);
     setLoading(true);
 
     try {
@@ -69,7 +84,12 @@ export default function LoginPage() {
         }
 
         const role = getUserRole(data.user?.user_metadata?.role);
-        router.replace(getRoleHomeRoute(role));
+        if (role === "patient" && data.user) {
+          const patient = await getPatientByUserId(data.user.id);
+          router.replace(patient ? "/patient" : "/patient/profile");
+        } else {
+          router.replace(getRoleHomeRoute(role));
+        }
         router.refresh();
         return;
       }
@@ -83,6 +103,7 @@ export default function LoginPage() {
         email: email.trim(),
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/login`,
           data: {
             full_name: name.trim(),
             role: accountType,
@@ -106,6 +127,7 @@ export default function LoginPage() {
           ? "Conta criada. Se a confirmacao por e-mail estiver ativa, confirme a conta antes de completar o perfil do paciente."
           : "Conta criada. Verifique o e-mail para confirmar o cadastro e depois volte para entrar.",
       );
+      setPendingConfirmationEmail(email.trim());
       setMode("login");
       setName("");
       setPassword("");
@@ -118,6 +140,43 @@ export default function LoginPage() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendConfirmation() {
+    if (!pendingConfirmationEmail) {
+      setError("Crie sua conta ou preencha o e-mail antes de reenviar a confirmacao.");
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
+    setResendingConfirmation(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingConfirmationEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+        return;
+      }
+
+      setNotice("Reenviamos o e-mail de confirmacao para o endereco informado.");
+    } catch (resendError) {
+      setError(
+        resendError instanceof Error
+          ? resendError.message
+          : "Nao foi possivel reenviar a confirmacao agora.",
+      );
+    } finally {
+      setResendingConfirmation(false);
     }
   }
 
@@ -413,11 +472,25 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
+              {pendingConfirmationEmail && mode === "login" ? (
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={resendingConfirmation}
+                  className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resendingConfirmation
+                    ? "Reenviando..."
+                    : "Reenviar confirmação"}
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={() => {
                   setError(null);
                   setNotice(null);
+                  setPendingConfirmationEmail(null);
                   setMode(mode === "login" ? "register" : "login");
                 }}
                 className="mt-5 text-sm font-medium text-blue-600 hover:text-blue-700"
