@@ -1,8 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -28,6 +27,7 @@ export function PatientShell({
 
 function PatientTopbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -59,18 +59,18 @@ function PatientTopbar() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/patient"
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          <NavButton
+            active={pathname === "/patient"}
+            onClick={() => router.push("/patient")}
           >
             Painel
-          </Link>
-          <Link
-            href="/patient/profile"
-            className="inline-flex h-10 items-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          </NavButton>
+          <NavButton
+            active={pathname === "/patient/profile"}
+            onClick={() => router.push("/patient/profile")}
           >
             Perfil
-          </Link>
+          </NavButton>
           <button
             type="button"
             onClick={handleSignOut}
@@ -82,5 +82,29 @@ function PatientTopbar() {
         </div>
       </div>
     </header>
+  );
+}
+
+function NavButton({
+  active,
+  onClick,
+  children,
+}: Readonly<{
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}>) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-10 items-center rounded-2xl border px-4 text-sm font-medium transition ${
+        active
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

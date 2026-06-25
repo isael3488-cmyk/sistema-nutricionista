@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   buildNutritionAssistantPrompt,
+  createFallbackResult,
   nutritionAssistantModel,
   nutritionAssistantResponseSchema,
   type NutritionAssistantApiResponse,
@@ -23,15 +24,6 @@ type OpenAIResponsePayload = {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "OPENAI_API_KEY nao configurada no servidor." },
-      { status: 500 },
-    );
-  }
-
   let body: NutritionAssistantInput;
 
   try {
@@ -43,11 +35,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const apiKey = process.env.OPENAI_API_KEY;
+
   if (!body?.patient?.name) {
     return NextResponse.json(
       { error: "Dados do paciente sao obrigatorios." },
       { status: 400 },
     );
+  }
+
+  if (!apiKey) {
+    return NextResponse.json({ result: createFallbackResult(body) });
   }
 
   const prompt = buildNutritionAssistantPrompt(body);
@@ -108,8 +106,10 @@ export async function POST(request: Request) {
 
     const message =
       errorPayload?.error?.message ?? "Falha ao gerar sugestao com a OpenAI.";
-
-    return NextResponse.json({ error: message }, { status: response.status });
+    return NextResponse.json(
+      { error: message, result: createFallbackResult(body) },
+      { status: response.status },
+    );
   }
 
   const data = (await response.json()) as OpenAIResponsePayload;
@@ -128,7 +128,10 @@ export async function POST(request: Request) {
     result = JSON.parse(outputText) as NutritionAssistantApiResponse["result"];
   } catch {
     return NextResponse.json(
-      { error: "Nao foi possivel interpretar a resposta da IA." },
+      {
+        error: "Nao foi possivel interpretar a resposta da IA.",
+        result: createFallbackResult(body),
+      },
       { status: 502 },
     );
   }

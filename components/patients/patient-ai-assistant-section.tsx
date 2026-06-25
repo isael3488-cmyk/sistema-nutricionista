@@ -128,13 +128,13 @@ export function PatientAIAssistantSection({
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-300">
               Assistente IA
             </p>
-            <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Sugestoes para revisao profissional
+              <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Leitura objetiva para revisao profissional
             </h3>
             <p className="max-w-xl text-sm leading-6 text-slate-300">
-              Este assistente ajuda a organizar ideias, sugerir estruturas de refeicao,
-              levantar substituicoes e resumir a consulta. O nutricionista continua
-              sendo o responsavel final pela conduta.
+              O assistente organiza a leitura das metricas, projeta tendencia e
+              sugere ajustes de dieta e treino. O nutricionista continua sendo o
+              responsavel final pela conduta.
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2">
@@ -174,24 +174,23 @@ export function PatientAIAssistantSection({
                 Contexto da consulta
               </p>
               <h4 className="text-xl font-semibold text-slate-900">
-                Gerar sugestoes da IA
+                Gerar leitura direta da IA
               </h4>
               <p className="text-sm leading-6 text-slate-500">
-                Adicione observacoes da consulta para ajudar a IA a resumir e organizar
-                melhor as ideias.
+                Adicione observacoes objetivas da consulta para completar o contexto.
               </p>
             </div>
 
             <label className="mt-5 block space-y-2">
               <span className="text-sm font-medium text-slate-700">
-                Observacoes da consulta
+                Observacoes objetivas da consulta
               </span>
               <textarea
                 rows={8}
                 value={consultationNotes}
                 onChange={(event) => setConsultationNotes(event.target.value)}
                 className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white"
-                placeholder="Descreva sintomas, rotina, preferencias, dificuldades, adesao ao plano e qualquer observacao da conversa."
+                placeholder="Sintomas, rotina, preferências, dificuldades, adesão ao plano e observações clinicas relevantes."
               />
             </label>
 
@@ -214,7 +213,7 @@ export function PatientAIAssistantSection({
                 disabled={!ready || state === "loading"}
                 className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {state === "loading" ? "Gerando..." : "Gerar sugestoes"}
+                {state === "loading" ? "Gerando..." : "Gerar leitura"}
               </button>
             </div>
           </form>
@@ -223,9 +222,21 @@ export function PatientAIAssistantSection({
 
       {state === "success" && result ? (
         <div className="grid gap-6 xl:grid-cols-2">
-          <Card title="Resumo da consulta" description={result.consultationSummary} />
+          <Card title="Resumo objetivo" description={result.consultationSummary} />
 
-          <Card title="Aviso da IA" description={result.disclaimer} />
+          <Card title="Linha de tendencia" description={
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-slate-900">
+                {result.projection.direction}
+              </p>
+              <p className="text-sm leading-6 text-slate-600">{result.statusSummary}</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <MiniProjection label="30 dias" value={result.projection.thirtyDays} />
+                <MiniProjection label="60 dias" value={result.projection.sixtyDays} />
+                <MiniProjection label="90 dias" value={result.projection.ninetyDays} />
+              </div>
+            </div>
+          } />
 
           <ListCard title="Plano alimentar sugerido" items={result.mealPlanSuggestions.map((item) => (
             <div key={`${item.meal}-${item.suggestion}`} className="space-y-2">
@@ -247,6 +258,29 @@ export function PatientAIAssistantSection({
                     className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
                   >
                     {food}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))} />
+
+          <ListCard title="Treino sugerido" items={result.trainingSuggestions.map((item) => (
+            <div key={`${item.focus}-${item.frequency}`} className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="font-semibold text-slate-900">{item.focus}</h4>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-500">
+                  {item.frequency}
+                </span>
+              </div>
+              <p className="text-sm leading-6 text-slate-600">{item.intensity}</p>
+              <p className="text-sm leading-6 text-slate-500">{item.rationale}</p>
+              <div className="flex flex-wrap gap-2">
+                {item.examples.map((alternative) => (
+                  <span
+                    key={alternative}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600"
+                  >
+                    {alternative}
                   </span>
                 ))}
               </div>
@@ -301,6 +335,9 @@ export function PatientAIAssistantSection({
           <div className="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white shadow-sm xl:col-span-2">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">
               Seguranca
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              {result.disclaimer}
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {result.safetyNotes.map((note) => (
@@ -370,5 +407,22 @@ function ListCard({
         )}
       </div>
     </article>
+  );
+}
+
+function MiniProjection({
+  label,
+  value,
+}: Readonly<{
+  label: string;
+  value: string;
+}>) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-xs leading-5 text-slate-600">{value}</p>
+    </div>
   );
 }
